@@ -2,9 +2,9 @@ name: Python CI + Docker Publish
 
 on:
   push:
-    branches: [ "week02" ]          # ⚠️ Docker publish only on push
+    branches: [ "week02" ] 
   pull_request:
-    branches: [ "week02" ]          # PRs run tests/lint only
+    branches: [ "week02" ]  
 
 jobs:
   test:
