@@ -1,0 +1,25 @@
+# Ignore Git and GitHub directories
+.git
+.github
+
+# Ignore Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environment folders
+env/
+venv/
+.venv/
+
+# Ignore documentation and build files
+README.md
+Dockerfile
+.dockerignore
+
+# Ignore system or editor files
+*.log
+*.tmp
+*.swp
+*.DS_Store
