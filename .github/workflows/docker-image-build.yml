@@ -1,0 +1,84 @@
+name: Python CI + Docker Publish
+
+on:
+  push:
+    branches: [ "week02" ]          # ⚠️ Docker publish only on push
+  pull_request:
+    branches: [ "week02" ]          # PRs run tests/lint only
+
+jobs:
+  test:
+    name: Lint & Test (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          pip install flake8
+          flake8 .
+        continue-on-error: true
+
+      - name: Test with pytest
+        run: |
+          pip install pytest
+          pytest
+        continue-on-error: true
+
+  docker:
+    name: Build & Push Docker image
+    runs-on: ubuntu-latest
+    needs: test
+    if: >
+      github.event_name == 'push' &&
+      secrets.DOCKERHUB_USERNAME != '' &&
+      secrets.DOCKERHUB_TOKEN != ''
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/cs6620-app
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short,prefix=
+          labels: |
+            org.opencontainers.image.title=cs6620-app
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
