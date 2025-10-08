@@ -9,8 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/cs6620-app
 
     steps:
       - name: Check out code
@@ -19,33 +17,40 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Helpful pre-check so failures are clear
+      - name: Validate Docker Hub secrets
+        run: |
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+            echo "Missing secret: DOCKERHUB_USERNAME"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "Missing secret: DOCKERHUB_TOKEN"
+            exit 1
+          fi
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract Docker metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=sha,format=short,prefix=
-          labels: |
-            org.opencontainers.image.title=cs6620-app
-            org.opencontainers.image.source=${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/cs6620-app:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/cs6620-app:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            build.source=github-actions
+            build.workflow=${{ github.workflow }}
+            build.run_id=${{ github.run_id }}
+            build.run_number=${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64
