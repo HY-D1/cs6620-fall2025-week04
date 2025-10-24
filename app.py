@@ -7,8 +7,11 @@ from flask_cors import CORS
 from pydub import AudioSegment
 import tempfile
 
-# Version: 1.0.1
-# Built with GitHub Actions
+# Version: 2.0 - Automated Deployment
+# Built with GitHub Actions + AWS SSM
+
+from datetime import datetime
+
 
 app = Flask(__name__)
 CORS(app)
@@ -505,6 +508,25 @@ def delete_labels():
     except Exception as e:
         return jsonify({"success": False, "message": f"Error deleting labels file: {str(e)}"})
 
+@app.route('/version')
+def version_page():
+    return f"""
+    <h1>Hello from Automated CI/CD Pipeline!</h1>
+    <p><strong>Version:</strong> 2.0 - Automated Deployment</p>
+    <p><strong>Deployed via:</strong> GitHub Actions + AWS SSM</p>
+    <p><strong>Build Date:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+    <p><strong>Assignment:</strong> Automated EC2 Deployment</p>
+    """
+
+@app.route('/health')
+def health():
+    return {
+        "status": "healthy",
+        "version": "2.0",
+        "deployment_method": "GitHub Actions + AWS SSM",
+        "timestamp": datetime.now().isoformat()
+    }
+
 
 # Auto-load CSV and audio files on startup
 def auto_load_data():
@@ -574,4 +596,5 @@ def auto_load_data():
 if __name__ == '__main__':
     # Auto-load CSV and audio files on startup
     auto_load_data()
-    app.run(debug=True, host='0.0.0.0', port=3000)
+    app.run(host='0.0.0.0', port=5000)
+
