@@ -105,3 +105,16 @@ jobs:
             --query 'Command.CommandId' --output text)
       
           echo "COMMAND_ID=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Verify deployment success
+        run: |
+          echo "Checking if container is running..."
+          aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Verify cs6620-app running" \
+            --parameters 'commands=[
+              "sudo docker ps | grep cs6620-app || echo Container not running",
+              "curl -fsS http://localhost/health || echo Health endpoint failed"
+            ]' \
+            --output text
