@@ -57,7 +57,7 @@ jobs:
           aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }} # REQUIRED in Learner Lab
           aws-region:            ${{ secrets.AWS_REGION }}
 
-      - name: Send SSM Run Command to EC2
+      - name: Deploy via SSM (robust)
         id: ssm
         run: |
           COMMAND_ID=$(aws ssm send-command \
@@ -65,50 +65,43 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --comment "CI deploy cs6620-app via SSM" \
             --parameters 'commands=[
+              "set -eux",
+              "echo --- OS info ---",
+              "cat /etc/os-release || true",
+              "uname -a || true",
+      
+              "echo --- Install Docker if missing ---",
+              "if ! command -v docker >/dev/null 2>&1; then",
+              "  if command -v dnf >/dev/null 2>&1; then sudo dnf install -y docker;",
+              "  elif command -v yum >/dev/null 2>&1; then sudo yum install -y docker;",
+              "  elif command -v apt-get >/dev/null 2>&1; then sudo apt-get update -y && sudo apt-get install -y docker.io;",
+              "  else echo No known package manager; exit 1; fi",
+              "fi",
+      
+              "echo --- Enable/start Docker ---",
+              "sudo systemctl enable docker || true",
+              "sudo systemctl start docker || true",
+              "sudo systemctl is-active docker",
+      
+              "echo --- Free port 80 if busy ---",
+              "sudo fuser -k 80/tcp || true",
+      
               "echo --- Pull latest image ---",
-              "docker pull ${{ secrets.DOCKERHUB_USERNAME }}/cs6620-app:latest",
-              "echo --- Stop old container (ok if missing) ---",
-              "docker stop cs6620-app 2>/dev/null || true",
-              "docker rm cs6620-app 2>/dev/null || true",
-              "echo --- Start new container ---",
-              "docker run -d -p 80:5000 --restart unless-stopped --name cs6620-app ${{ secrets.DOCKERHUB_USERNAME }}/cs6620-app:latest",
-              "echo --- Show running containers ---",
-              "docker ps --format \"table {{.Names}}\t{{.Image}}\t{{.Status}}\"",
-              "echo --- Done ---"
+              "sudo docker pull ${{ secrets.DOCKERHUB_CS6620 }}/cs6620-app:latest",
+      
+              "echo --- Stop/remove old container (ok if missing) ---",
+              "sudo docker stop cs6620-app 2>/dev/null || true",
+              "sudo docker rm cs6620-app 2>/dev/null || true",
+      
+              "echo --- Run new container (80->5000) ---",
+              "sudo docker run -d -p 80:5000 --restart unless-stopped --name cs6620-app ${{ secrets.DOCKERHUB_CS6620 }}/cs6620-app:latest",
+      
+              "echo --- Show containers ---",
+              "sudo docker ps",
+      
+              "echo --- Try health endpoint ---",
+              "curl -fsS http://localhost/health || true"
             ]' \
-            --query 'Command.CommandId' \
-            --output text)
-
-          echo "COMMAND_ID=$COMMAND_ID" >> $GITHUB_OUTPUT
-
-      - name: Wait for command to finish & print output
-        run: |
-          aws ssm wait command-executed \
-            --command-id "${{ steps.ssm.outputs.COMMAND_ID }}" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}"
-
-          echo "===== SSM Output ====="
-          aws ssm get-command-invocation \
-            --command-id "${{ steps.ssm.outputs.COMMAND_ID }}" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --query 'StandardOutputContent' \
-            --output text
-
-      - name: Show SSM stdout/stderr (for debugging)
-        run: |
-          echo "===== STDOUT ====="
-          aws ssm get-command-invocation \
-            --command-id "${{ steps.ssm.outputs.COMMAND_ID }}" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --query 'StandardOutputContent' \
-            --output text || true
+            --query 'Command.CommandId' --output text)
       
-          echo "===== STDERR ====="
-          aws ssm get-command-invocation \
-            --command-id "${{ steps.ssm.outputs.COMMAND_ID }}" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --query 'StandardErrorContent' \
-            --output text || true
-
-
-      
+          echo "COMMAND_ID=$COMMAND_ID" >> "$GITHUB_OUTPUT"
