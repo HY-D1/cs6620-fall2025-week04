@@ -146,14 +146,19 @@ def serve_audio_segment():
         return f"Error extracting audio segment: {str(e)}", 500
 
 @app.route('/')
-def index():
+def home():
     return f"""
     <h1>Hello from Automated CI/CD Pipeline!</h1>
     <p><strong>Version:</strong> 2.0 - Automated Deployment</p>
     <p><strong>Deployed via:</strong> GitHub Actions + AWS SSM</p>
     <p><strong>Build Date:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
     <p><strong>Assignment:</strong> Automated EC2 Deployment</p>
+    <p><a href="/player">Open Audio Player</a></p>
     """
+
+@app.route('/player')
+def player():
+    return render_template('index.html')
 
 @app.route('/select_directory', methods=['POST'])
 def select_directory():
